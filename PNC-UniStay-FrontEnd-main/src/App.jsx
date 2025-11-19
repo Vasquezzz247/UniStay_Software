@@ -21,6 +21,8 @@ import ScheduleAppointment from './pages/ScheduleAppointment';
 import MyApplicationsPage from './pages/MyApplicationsPage';
 import MyPaymentsPage from './pages/MyPaymentsPage'; 
 import PaymentHistoryPage from './pages/PaymentHistoryPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function App() {
   return (
@@ -29,6 +31,8 @@ function App() {
         {/* --- RUTAS PÚBLICAS SIN LAYOUT --- */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* --- RUTAS PROTEGIDAS DENTRO DEL LAYOUT PRINCIPAL --- */}
         <Route element={<MainLayout />}>

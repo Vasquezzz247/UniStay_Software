@@ -1,11 +1,19 @@
 // src/services/apiClient.js
 import axios from 'axios';
 
-const apiClient = axios.create({
-  baseURL: 'http://localhost:8080/api',
-});
+// Base desde .env
+let baseURL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
 
-// Más adelante, aquí configuraremos los "interceptors" para manejar errores
-// o la renovación de tokens de forma global.
+// Normalizar: quitar "/" final
+baseURL = baseURL.replace(/\/$/, "");
+
+// Asegurar que termine con "/api"
+if (!baseURL.endsWith("/api")) {
+  baseURL += "/api";
+}
+
+const apiClient = axios.create({
+  baseURL,
+});
 
 export default apiClient;

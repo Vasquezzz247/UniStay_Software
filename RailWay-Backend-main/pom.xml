@@ -68,7 +68,7 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- PostgreSQL Driver -->
+        <!-- PostgreSQL Driver (para Spring Boot en runtime) -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -92,7 +92,7 @@
             <version>0.12.5</version>
         </dependency>
 
-        <!-- Flyway -->
+        <!-- Flyway (para integración con Spring Boot si la usas en runtime) -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
@@ -152,22 +152,29 @@
                     <url>jdbc:postgresql://localhost:5432/unistay</url>
                     <user>postgres</user>
                     <password>0101</password>
+
+                    <!-- Rutas donde Flyway buscará los .sql -->
                     <locations>
                         <location>filesystem:src/main/resources/db/migration</location>
+                        <location>filesystem:src/main/resources/db/seeders</location>
                     </locations>
+
                     <schemas>
                         <schema>public</schema>
                     </schemas>
+
+                    <!-- Habilitar flyway:clean -->
+                    <cleanDisabled>false</cleanDisabled>
                 </configuration>
                 <dependencies>
-                    <!-- Flyway database module for PostgreSQL (required since Flyway 10.x) -->
+                    <!-- Módulo DB de Flyway para PostgreSQL (requerido en Flyway 10.x) -->
                     <dependency>
                         <groupId>org.flywaydb</groupId>
                         <artifactId>flyway-database-postgresql</artifactId>
                         <version>10.18.2</version>
                     </dependency>
 
-                    <!-- JDBC Driver for Flyway Plugin -->
+                    <!-- JDBC Driver para el plugin -->
                     <dependency>
                         <groupId>org.postgresql</groupId>
                         <artifactId>postgresql</artifactId>
