@@ -1,10 +1,23 @@
+// src/components/layout/Sidebar.jsx
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
-  FaGlobe, FaClipboardList, FaPlusSquare, FaBuilding, FaPlusCircle,
-  FaChevronLeft, FaChevronRight, FaUniversity, FaSignOutAlt, FaUserCircle,
-  FaRegCommentDots, FaPaperPlane, FaCreditCard, FaDollarSign
+  FaGlobe,
+  FaClipboardList,
+  FaPlusSquare,
+  FaBuilding,
+  FaPlusCircle,
+  FaChevronLeft,
+  FaChevronRight,
+  FaUniversity,
+  FaSignOutAlt,
+  FaUserCircle,
+  FaRegCommentDots,
+  FaPaperPlane,
+  FaCreditCard,
+  FaDollarSign,
+  FaBookmark,          // 👈 NUEVO
 } from 'react-icons/fa';
 
 // --- DATOS DE NAVEGACIÓN CORREGIDOS ---
@@ -13,6 +26,7 @@ const navSectionsData = [
     title: "Publicaciones",
     links: [
       { to: "/posts", label: "Explorar Posts", icon: FaGlobe, role: 'all', end: true },
+      { to: "/saved-posts", label: "Guardados", icon: FaBookmark, role: 'all' }, // 👈 NUEVO
       { to: "/my-applications", label: "Mis Aplicaciones", icon: FaPaperPlane, role: 'student' },
       { to: "/my-posts", label: "Mis Posts", icon: FaClipboardList, role: 'owner' },
       { to: "/posts/new", label: "Crear Post", icon: FaPlusSquare, role: 'owner' }
@@ -28,7 +42,6 @@ const navSectionsData = [
   {
     title: "Gestión",
     links: [
-      // --- LÍNEA CORREGIDA: Se añade el ícono que faltaba ---
       { to: "/requests", label: "Solicitudes Recibidas", icon: FaRegCommentDots, role: 'owner' },
       { to: "/payment-history", label: "Pagos y Alquileres", icon: FaDollarSign, role: 'owner' },
       { to: "/my-payments", label: "Mis Pagos", icon: FaCreditCard, role: 'student' }
@@ -69,53 +82,71 @@ function Sidebar({ isCollapsed, toggleSidebar }) {
             UniStay
           </span>
         </div>
-        <button onClick={toggleSidebar} className="p-2 rounded-full hover:bg-gray-100 absolute top-[72px] -right-4 bg-white border border-gray-300" aria-label="Toggle sidebar">
-          {isCollapsed ? <FaChevronRight className="h-4 w-4 text-gray-700" /> : <FaChevronLeft className="h-4 w-4 text-gray-700" />}
+        <button
+          onClick={toggleSidebar}
+          className="p-2 rounded-full hover:bg-gray-100 absolute top-[72px] -right-4 bg-white border border-gray-300"
+          aria-label="Toggle sidebar"
+        >
+          {isCollapsed ? (
+            <FaChevronRight className="h-4 w-4 text-gray-700" />
+          ) : (
+            <FaChevronLeft className="h-4 w-4 text-gray-700" />
+          )}
         </button>
       </header>
 
       <nav className="flex-grow py-4 space-y-4 overflow-y-auto overflow-x-hidden px-3">
         {navSectionsData.map((section) => {
-            const visibleLinks = section.links.filter(link => {
-                if (link.role === 'all') return true;
-                if (isStudent && link.role === 'student') return true;
-                if (!isStudent && link.role === 'owner') return true;
-                return false;
-            });
+          const visibleLinks = section.links.filter(link => {
+            if (link.role === 'all') return true;
+            if (isStudent && link.role === 'student') return true;
+            if (!isStudent && link.role === 'owner') return true;
+            return false;
+          });
 
-            if (visibleLinks.length === 0) {
-                return null;
-            }
+          if (visibleLinks.length === 0) {
+            return null;
+          }
 
-            return (
-                <div key={section.title}>
-                    <h3 className={`px-2 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider overflow-hidden transition-opacity duration-200 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
-                        {section.title}
-                    </h3>
-                    {visibleLinks.map(link => (
-                        <NavLink
-                            key={link.to}
-                            to={link.to}
-                            end={link.end}
-                            className={({ isActive }) =>
-                            `${linkStyles.base} ${isCollapsed ? 'justify-center' : ''} ${isActive ? linkStyles.active : linkStyles.inactive}`
-                            }
-                            title={isCollapsed ? link.label : ''}
-                        >
-                            <link.icon className="h-5 w-5 flex-shrink-0" />
-                            <span className={textAnimation}>
-                            {link.label}
-                            </span>
-                        </NavLink>
-                    ))}
-                </div>
-            );
+          return (
+            <div key={section.title}>
+              <h3
+                className={`px-2 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider overflow-hidden transition-opacity duration-200 ${
+                  isCollapsed ? 'opacity-0' : 'opacity-100'
+                }`}
+              >
+                {section.title}
+              </h3>
+              {visibleLinks.map(link => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  end={link.end}
+                  className={({ isActive }) =>
+                    `${linkStyles.base} ${isCollapsed ? 'justify-center' : ''} ${
+                      isActive ? linkStyles.active : linkStyles.inactive
+                    }`
+                  }
+                  title={isCollapsed ? link.label : ''}
+                >
+                  <link.icon className="h-5 w-5 flex-shrink-0" />
+                  <span className={textAnimation}>
+                    {link.label}
+                  </span>
+                </NavLink>
+              ))}
+            </div>
+          );
         })}
       </nav>
 
       <footer className="p-3 border-t border-gray-200">
         {user && (
-          <div className={`flex items-center p-2 mb-2 rounded-md bg-gray-50 overflow-hidden ${isCollapsed ? 'justify-center' : ''}`}>
+          <div
+            className={`flex items-center p-2 mb-2 rounded-md bg-gray-50 overflow-hidden ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+          >
             <FaUserCircle className="h-8 w-8 text-gray-400 flex-shrink-0" />
             <div className={textAnimation}>
               <p className="text-sm font-semibold text-gray-800 truncate">Bienvenido,</p>
@@ -125,7 +156,9 @@ function Sidebar({ isCollapsed, toggleSidebar }) {
         )}
         <button
           onClick={handleLogout}
-          className={`${linkStyles.base} text-red-600 hover:bg-red-100 ${isCollapsed ? 'justify-center' : ''}`}
+          className={`${linkStyles.base} text-red-600 hover:bg-red-100 ${
+            isCollapsed ? 'justify-center' : ''
+          }`}
           title="Cerrar Sesión"
         >
           <FaSignOutAlt className="h-5 w-5 flex-shrink-0" />

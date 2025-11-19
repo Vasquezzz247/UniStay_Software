@@ -23,6 +23,7 @@ import MyPaymentsPage from './pages/MyPaymentsPage';
 import PaymentHistoryPage from './pages/PaymentHistoryPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import SavedPostsPage from './pages/SavedPostsPage';
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
           <Route path="/posts/:postId" element={<ProtectedRoute><PostDetailPage /></ProtectedRoute>} />
           <Route path="/posts/new" element={<ProtectedRoute><CreatePostPage /></ProtectedRoute>} />
           <Route path="/posts/edit/:postId" element={<ProtectedRoute><EditPostPage /></ProtectedRoute>} />
+          <Route path="/saved-posts" element={<ProtectedRoute><SavedPostsPage /></ProtectedRoute>} />
           
           {/* Rutas de Habitaciones */}
           <Route path="/rooms" element={<ProtectedRoute><RoomsPage /></ProtectedRoute>} />
