@@ -2,6 +2,7 @@
 -- V4__seed_demo_posts.sql
 -- 20 propietarios demo + 20 rooms + 20 posts
 -- Cada post con imagen placeholder
+-- + Reseñas demo (3 por post)
 -- ==========================================
 
 -- ==========================================
@@ -138,3 +139,9 @@ VALUES
     ('00000000-0000-0000-0000-000000003012',0,'https://picsum.photos/seed/unistay18/1200/600','00000000-0000-0000-0000-000000002012'),
     ('00000000-0000-0000-0000-000000003013',0,'https://picsum.photos/seed/unistay19/1200/600','00000000-0000-0000-0000-000000002013'),
     ('00000000-0000-0000-0000-000000003014',0,'https://picsum.photos/seed/unistay20/1200/600','00000000-0000-0000-0000-000000002014');
+
+-- ==========================================
+-- 5) REVIEWS DEMO (3 por post)
+--    Usamos los mismos usuarios demo como autores
+--    Tabla asumida: public.reviews
+-- ==========================================

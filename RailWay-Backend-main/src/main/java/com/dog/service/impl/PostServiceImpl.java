@@ -14,6 +14,7 @@ import com.dog.exception.UnauthorizedOperationException;
 import com.dog.repository.PostRepository;
 import com.dog.repository.RoomRepository;
 import com.dog.repository.UserRepository;
+import com.dog.repository.ReviewRepository;
 import com.dog.service.FileStorageService;
 import com.dog.service.PostService;
 import com.dog.utils.mappers.PostMapper;
@@ -36,19 +37,45 @@ public class PostServiceImpl implements PostService {
     private final UserRepository userRepository;
     private final RoomRepository roomRepository;
     private final FileStorageService fileStorageService;
+    private final ReviewRepository reviewRepository;
 
     @Autowired
-    public PostServiceImpl(PostRepository postRepository, UserRepository userRepository, RoomRepository roomRepository, FileStorageService fileStorageService) {
+    public PostServiceImpl(PostRepository postRepository,
+                           UserRepository userRepository,
+                           RoomRepository roomRepository,
+                           FileStorageService fileStorageService,
+                           ReviewRepository reviewRepository) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.roomRepository = roomRepository;
         this.fileStorageService = fileStorageService;
+        this.reviewRepository = reviewRepository;
     }
 
-    // ... (El resto de tus métodos: create, update, findAll, etc. se mantienen igual)
+    // ==================== Helpers para rating ====================
+
+    private void enrichPostWithRating(PostResponse response) {
+        if (response == null || response.getPostId() == null) return;
+
+        Double avg = reviewRepository.findAverageRatingByPostId(response.getPostId());
+        long count = reviewRepository.countByPost_Id(response.getPostId());
+
+        response.setAverageRating(avg != null ? avg : 0.0);
+        response.setTotalReviews(count);
+    }
+
+    private void enrichPostsWithRating(List<PostResponse> responses) {
+        if (responses == null) return;
+        responses.forEach(this::enrichPostWithRating);
+    }
+
+    // ==================== Implementación de PostService ====================
+
     @Override
     @Transactional
-    public PostResponse createPostForAuthenticatedOwner(PostCreateRequest postRequest, MultipartFile[] images, String ownerEmail) {
+    public PostResponse createPostForAuthenticatedOwner(PostCreateRequest postRequest,
+                                                        MultipartFile[] images,
+                                                        String ownerEmail) {
         User owner = userRepository.findByEmail(ownerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User (Owner)", "email", ownerEmail));
         Room room = roomRepository.findById(postRequest.getRoomId())
@@ -87,12 +114,16 @@ public class PostServiceImpl implements PostService {
         }
 
         Post finalSavedPost = postRepository.save(tempSavedPost);
-        return PostMapper.toDTO(finalSavedPost);
+        PostResponse response = PostMapper.toDTO(finalSavedPost);
+        enrichPostWithRating(response);
+        return response;
     }
 
     @Override
     @Transactional
-    public PostResponse update(PostUpdateRequest postUpdateRequest, MultipartFile[] newImages, UserDetails currentUser) {
+    public PostResponse update(PostUpdateRequest postUpdateRequest,
+                               MultipartFile[] newImages,
+                               UserDetails currentUser) {
         Post existingPost = postRepository.findById(postUpdateRequest.getPostId())
                 .orElseThrow(() -> new PostNotFoundException("Post no encontrado para actualizar con ID: " + postUpdateRequest.getPostId()));
         boolean isAdmin = currentUser.getAuthorities().stream()
@@ -149,53 +180,56 @@ public class PostServiceImpl implements PostService {
         }
 
         Post updatedPost = postRepository.save(existingPost);
-        return PostMapper.toDTO(updatedPost);
+        PostResponse response = PostMapper.toDTO(updatedPost);
+        enrichPostWithRating(response);
+        return response;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PostResponse> findAll() {
-        return postRepository.findAll().stream()
+        List<PostResponse> responses = postRepository.findAll().stream()
                 .map(PostMapper::toDTO)
                 .collect(Collectors.toList());
+        enrichPostsWithRating(responses);
+        return responses;
     }
 
     @Override
     @Transactional(readOnly = true)
     public PostResponse findById(UUID id) {
-        return postRepository.findById(id)
+        PostResponse response = postRepository.findById(id)
                 .map(PostMapper::toDTO)
                 .orElseThrow(() -> new PostNotFoundException("Post no encontrado con ID: " + id));
+        enrichPostWithRating(response);
+        return response;
     }
 
-    // --- ESTE ES EL NUEVO MÉTODO A AÑADIR ---
     @Override
     @Transactional(readOnly = true)
     public List<PostResponse> findPostsByCurrentUser(String email) {
-        // 1. Buscamos al usuario por su email para obtener su ID
         User owner = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", "email", email));
 
-        // 2. Usamos el método existente en el repositorio para buscar los posts por el ID del dueño
         List<Post> userPosts = postRepository.findByOwnerId(owner.getId());
-
-        // 3. Mapeamos la lista de entidades a una lista de DTOs y la devolvemos
-        return userPosts.stream()
+        List<PostResponse> responses = userPosts.stream()
                 .map(PostMapper::toDTO)
                 .collect(Collectors.toList());
+        enrichPostsWithRating(responses);
+        return responses;
     }
-    // --- FIN DEL NUEVO MÉTODO ---
 
-    // El método findPostsByOwnerId(UUID ownerId) puede ser eliminado si ya no se usa en otro lado,
-    // o mantenido si es necesario. Para evitar confusiones, lo renombro a findPostsByOwnerId.
     @Override
     @Transactional(readOnly = true)
     public List<PostResponse> findPostsByOwnerId(UUID ownerId) {
         userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User (Owner)", "ID", ownerId));
-        return postRepository.findByOwnerId(ownerId).stream()
+
+        List<PostResponse> responses = postRepository.findByOwnerId(ownerId).stream()
                 .map(PostMapper::toDTO)
                 .collect(Collectors.toList());
+        enrichPostsWithRating(responses);
+        return responses;
     }
 
     @Override

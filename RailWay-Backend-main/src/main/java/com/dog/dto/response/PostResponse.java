@@ -19,4 +19,7 @@ public class PostResponse {
     private String minimumLeaseTerm;
     private String maximumLeaseTerm;
     private Double securityDeposit;
+
+    private Double averageRating;
+    private Long totalReviews;
 }

@@ -1,9 +1,12 @@
+// src/pages/AllPostsPage.jsx (o donde tengas este componente)
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getAllPosts } from '../services/postService';
+import { filterPosts } from '../services/postFilterService'; // 👈 IMPORTANTE
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ErrorMessage from '../components/ui/ErrorMessage';
 import { FaHome } from 'react-icons/fa';
+import PostFiltersBar from '../components/post/PostFiltersBar'; // 👈 NUEVO IMPORT
 
 const ReadOnlyPostCard = ({ post }) => {
     const getInitials = (name) => {
@@ -33,12 +36,10 @@ const ReadOnlyPostCard = ({ post }) => {
             <div className="p-5 flex flex-col flex-grow">
                 <h3 className="font-bold text-lg text-gray-900 truncate" title={post.title}>{post.title}</h3>
                 
-                {/* --- INICIO DEL CAMBIO: Dirección justo después del título --- */}
                 <p className="flex items-center text-sm text-gray-500 mt-1 truncate" title={post.roomDetails?.address}>
                     <FaHome className="mr-2 text-gray-400 flex-shrink-0" />
                     {post.roomDetails?.address || 'Dirección no disponible'}
                 </p>
-                {/* --- FIN DEL CAMBIO --- */}
                 
                 <div className="flex items-center my-4">
                     <div className="flex-shrink-0 h-8 w-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -66,54 +67,120 @@ const ReadOnlyPostCard = ({ post }) => {
     );
 };
 
-
 function AllPostsPage() {
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        const loadPostsData = async () => {
-            try {
-                setIsLoading(true);
-                setError(null);
-                const postsData = await getAllPosts(); 
-                setPosts(postsData || []);
-            } catch (err) {
-                console.error("Error al cargar los posts en AllPostsPage:", err);
-                setError(err.message || 'Ocurrió un error al obtener las publicaciones.');
-                setPosts([]);
-            } finally {
-                setIsLoading(false);
-            }
-        };
+    const [filters, setFilters] = useState({
+        minPrice: '',
+        maxPrice: '',
+        maxDistanceKm: '',
+    });
 
-        loadPostsData();
+    // Carga inicial (sin filtros)
+    const loadAllPosts = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+            const postsData = await getAllPosts();
+            setPosts(postsData || []);
+        } catch (err) {
+            console.error("Error al cargar los posts en AllPostsPage:", err);
+            setError(err.message || 'Ocurrió un error al obtener las publicaciones.');
+            setPosts([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadAllPosts();
     }, []);
 
-    if (isLoading) return <div className="min-h-[calc(100vh-16rem)] flex items-center justify-center"><LoadingSpinner /></div>;
-    if (error) return <div className="py-10"><ErrorMessage message={error} /></div>;
+    // Aplicar filtros
+    const handleApplyFilters = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            // Convertimos strings a números o undefined
+            const payload = {
+                minPrice: filters.minPrice !== '' ? Number(filters.minPrice) : undefined,
+                maxPrice: filters.maxPrice !== '' ? Number(filters.maxPrice) : undefined,
+                maxDistanceKm: filters.maxDistanceKm !== '' ? Number(filters.maxDistanceKm) : undefined,
+            };
+
+            const filtered = await filterPosts(payload);
+            setPosts(filtered || []);
+        } catch (err) {
+            console.error("Error al filtrar posts:", err);
+            setError(err.message || 'Ocurrió un error al filtrar las publicaciones.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Limpiar filtros
+    const handleClearFilters = async () => {
+        setFilters({
+            minPrice: '',
+            maxPrice: '',
+            maxDistanceKm: '',
+        });
+        await loadAllPosts();
+    };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-[calc(100vh-16rem)] flex items-center justify-center">
+                <LoadingSpinner />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="py-10">
+                <ErrorMessage message={error} />
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <div className="text-center mb-10">
-                <h1 className="text-4xl font-bold text-gray-800 tracking-tight">Explora Nuestras Publicaciones</h1>
-                <p className="mt-2 text-lg text-gray-600">Encuentra la habitación perfecta para tu próxima estancia.</p>
+            <div className="text-center mb-6">
+                <h1 className="text-4xl font-bold text-gray-800 tracking-tight">
+                    Explora Nuestras Publicaciones
+                </h1>
+                <p className="mt-2 text-lg text-gray-600">
+                    Encuentra la habitación perfecta para tu próxima estancia.
+                </p>
             </div>
+
+            {/* 🔍 BARRA DE FILTROS */}
+            <PostFiltersBar
+                filters={filters}
+                onFiltersChange={setFilters}
+                onApplyFilters={handleApplyFilters}
+                onClearFilters={handleClearFilters}
+            />
 
             {posts.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {posts.map(post => (
-                        <ReadOnlyPostCard 
-                            key={post.postId || post.id} 
-                            post={post} 
+                    {posts.map((post) => (
+                        <ReadOnlyPostCard
+                            key={post.postId || post.id}
+                            post={post}
                         />
                     ))}
                 </div>
             ) : (
                 <div className="text-center py-10 bg-white rounded-xl shadow p-8">
                     <h3 className="text-xl font-semibold text-gray-700">No hay publicaciones</h3>
-                    <p className="text-gray-500 mt-2">Aún no hay nada por aquí. ¡Vuelve a intentarlo más tarde!</p>
+                    <p className="text-gray-500 mt-2">
+                        Aún no hay nada por aquí. ¡Vuelve a intentarlo más tarde!
+                    </p>
                 </div>
             )}
         </div>

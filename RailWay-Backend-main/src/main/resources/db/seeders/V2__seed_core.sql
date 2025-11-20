@@ -38,18 +38,3 @@ VALUES (
            16
        )
     ON CONFLICT (id) DO NOTHING;
-
--- Post demo
-INSERT INTO public.posts (id, title, price, status, user_id, room_id, maximum_lease_term, minimum_lease_term, security_deposit)
-VALUES (
-           'ca57e06d-2038-405c-bb28-b46aeed72985',
-           'Habitación acogedora para estudiantes',
-           200,
-           'DISPONIBLE',
-           'e03cb4a6-6ee9-4c89-b1ce-0ae588c8d559',
-           'a6c7c698-d75c-44fc-be8a-c69a4749fcef',
-           '6 meses',
-           '4 meses',
-           100
-       )
-    ON CONFLICT (id) DO NOTHING;
