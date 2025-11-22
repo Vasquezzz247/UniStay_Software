@@ -1,4 +1,3 @@
-// src/main/java/com/dog/service/impl/GoogleAuthServiceImpl.java
 package com.dog.service.impl;
 
 import com.dog.entities.Role;
@@ -15,12 +14,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;   // 👈 IMPORTANTE
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -64,34 +64,55 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
             throw new IllegalArgumentException("Token no contiene email válido");
         }
 
-        // ========== 2. Crear usuario si no existe ==========
+        // ========== 2. Buscar o crear usuario ==========
         User user = userRepository.findByEmail(email).orElseGet(() -> {
             User newUser = new User();
             newUser.setEmail(email);
             newUser.setName(name != null ? name : "Usuario Google");
             newUser.setLastName("");
+            // Como la columna es NOT NULL, dejamos password vacío
+            newUser.setPassword("");
 
+            // ⚠️ Asegúrate que en la tabla roles exista EXACTAMENTE "ESTUDIANTE"
             Role defaultRole = roleRepository.findByRole("ESTUDIANTE")
                     .orElseThrow(() -> new RuntimeException("Rol 'ESTUDIANTE' no encontrado"));
 
             newUser.getRoles().add(defaultRole);
+            System.out.println("[GOOGLE] Creando usuario nuevo con rol: " + defaultRole.getRole());
             return userRepository.save(newUser);
         });
 
+        // 2.1 Si el usuario EXISTE pero NO tiene roles → le ponemos ESTUDIANTE
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            Role defaultRole = roleRepository.findByRole("ESTUDIANTE")
+                    .orElseThrow(() -> new RuntimeException("Rol 'ESTUDIANTE' no encontrado"));
+            user.getRoles().add(defaultRole);
+            user = userRepository.save(user);
+            System.out.println("[GOOGLE] Usuario existente sin roles, asignado: " + defaultRole.getRole());
+        }
+
+        System.out.println("[GOOGLE] Roles del usuario en BD: " +
+                user.getRoles().stream().map(Role::getRole).toList()
+        );
+
         // ========== 3. Convertir roles a authorities ==========
+        // Metemos *dos* authorities por rol: "ESTUDIANTE" y "ROLE_ESTUDIANTE"
         List<SimpleGrantedAuthority> authorities = user.getRoles().stream()
-                .map(r -> new SimpleGrantedAuthority(r.getRole()))
+                .flatMap(r -> Stream.of(
+                        new SimpleGrantedAuthority(r.getRole()),
+                        new SimpleGrantedAuthority("ROLE_" + r.getRole())
+                ))
                 .collect(Collectors.toList());
 
+        System.out.println("[GOOGLE] Authorities del token: " + authorities);
+
         // ========== 4. Crear UserDetails para el JWT ==========
-        // OJO: tenemos com.dog.entities.User, así que uso el nombre completo
         UserDetails principal = org.springframework.security.core.userdetails.User
                 .withUsername(user.getEmail())
-                .password("")                // no usamos la password aquí
+                .password("") // no usamos password aquí
                 .authorities(authorities)
                 .build();
 
-        // Ahora el principal ES un UserDetails, igual que en el login normal
         UsernamePasswordAuthenticationToken authToken =
                 new UsernamePasswordAuthenticationToken(
                         principal,

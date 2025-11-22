@@ -16,12 +16,13 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
-  const { login, isLoading } = useAuth();
+  const { login, loginWithToken, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const successMessage = location.state?.message;
 
+  // ---------- LOGIN NORMAL ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -29,13 +30,13 @@ const LoginPage = () => {
 
     try {
       await login({ email, password });
-      navigate('/posts'); // login normal
+      navigate('/posts', { replace: true });
     } catch (err) {
       setError(err.message || 'Error al iniciar sesión.');
     }
   };
 
-  // ========== LOGIN CON GOOGLE ==========
+  // ---------- LOGIN CON GOOGLE ----------
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       const idToken = credentialResponse.credential;
@@ -43,17 +44,15 @@ const LoginPage = () => {
       const { data } = await apiClient.post('/auth/google-login', { idToken });
 
       // Soportar { token } o { data: { token } }
-      const backendToken = data?.token ?? data?.data?.token;
+      const backendToken = data?.token ?? data?.data?.token ?? data;
 
       if (!backendToken) {
         throw new Error('La respuesta del servidor no contiene token');
       }
 
-      // Guardamos el token en las mismas claves que el login normal
-      localStorage.setItem('token', backendToken);
-      localStorage.setItem('userToken', backendToken);
+      // Mismo flujo que el login normal
+      loginWithToken(backendToken);
 
-      // Navegar a /posts; ProtectedRoute verá el token y dejará pasar
       navigate('/posts', { replace: true });
     } catch (err) {
       console.error('Error en login con Google:', err);

@@ -1,7 +1,11 @@
 // src/context/AuthContext.jsx
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { register as registerService, login as loginService, logout as logoutService } from '../services/authService';
+import {
+  register as registerService,
+  login as loginService,
+  logout as logoutService,
+} from '../services/authService';
 import apiClient from '../services/apiClient';
 import { jwtDecode } from 'jwt-decode';
 
@@ -13,55 +17,97 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Función unificada para actualizar el estado desde un token
-  const updateUserState = (token) => {
+  // ---------- Función unificada para actualizar el estado desde un token ----------
+  const updateUserState = (jwt) => {
     try {
-      const decodedToken = jwtDecode(token);
-      // Guardamos el email Y los roles en el estado del usuario
+      const decodedToken = jwtDecode(jwt);
+
       setUser({
         email: decodedToken.sub,
         roles: decodedToken.roles || [],
       });
-      setToken(token);
+      setToken(jwt);
       setIsAuthenticated(true);
-      // Configuramos el header de Axios para futuras peticiones
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // Header Authorization para todas las peticiones
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${jwt}`;
     } catch (error) {
-      console.error("Token en localStorage es inválido o expiró", error);
-      logout(); // Llama a la función logout de este contexto si el token es malo
+      console.error('Token en localStorage es inválido o expiró', error);
+      logout();
     }
   };
-  
+
+  // ---------- Login con un token ya generado (Google, etc.) ----------
+  const loginWithToken = (jwt) => {
+    if (!jwt) return;
+
+    // Solo usamos userToken como clave "oficial"
+    localStorage.setItem('userToken', jwt);
+    // Por si quedó viejo, limpiamos la otra
+    localStorage.removeItem('token');
+
+    updateUserState(jwt);
+  };
+
+  // ---------- Al cargar la app: leer token persistido ----------
   useEffect(() => {
-    // Al cargar la app, revisa si hay un token persistido
-    const storedToken = localStorage.getItem('userToken');
+    let storedToken =
+      localStorage.getItem('userToken') || localStorage.getItem('token');
+
     if (storedToken) {
-      updateUserState(storedToken);
+      // Normalizamos: si solo existía "token", lo pasamos a "userToken"
+      if (!localStorage.getItem('userToken')) {
+        localStorage.setItem('userToken', storedToken);
+      }
+      localStorage.removeItem('token');
+
+      loginWithToken(storedToken);
     }
+
     setIsLoading(false);
   }, []);
 
+  // ---------- Login normal (email + password) ----------
   const login = async (credentials) => {
     const data = await loginService(credentials);
-    // loginService ya guarda en localStorage. Ahora actualizamos el estado.
-    updateUserState(data.token);
+    const backendToken = data?.token ?? data?.data?.token ?? data;
+
+    if (!backendToken) {
+      throw new Error('La respuesta de login no contiene token');
+    }
+
+    loginWithToken(backendToken);
   };
-  
+
   const logout = () => {
-    logoutService(); // Llama al servicio para limpiar localStorage y Axios
-    // Limpiamos el estado local
+    logoutService(); // limpia lo que tengas en el servicio
+
+    // Limpiamos estado local
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
+
+    // Limpiamos headers y storage
+    delete apiClient.defaults.headers.common['Authorization'];
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('token'); // por si quedó alguno viejo
   };
 
   const register = async (userData) => {
     return await registerService(userData);
   };
 
-  const value = { user, isAuthenticated, isLoading, login, logout, register };
+  const value = {
+    user,
+    token,
+    isAuthenticated,
+    isLoading,
+    login,
+    loginWithToken, // 👈 lo usamos en el login con Google
+    logout,
+    register,
+  };
 
-  // Muestra un loader mientras se verifica el token inicial
   if (isLoading) {
     return <div>Cargando...</div>;
   }
@@ -69,5 +115,4 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Hook personalizado para consumir el contexto fácilmente
 export const useAuth = () => useContext(AuthContext);
