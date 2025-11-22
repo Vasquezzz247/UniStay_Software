@@ -33,18 +33,16 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Volvemos a activar la configuración de CORS aquí
-                .cors(Customizer.withDefaults()) // Esto le dice a Spring que busque un Bean llamado "corsConfigurationSource"
-
-                // 2. Deshabilitamos CSRF
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
-
-                // 3. Sesión STATELESS
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // 4. Reglas de autorización (SIN CAMBIOS)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/uploads_unistay/**").permitAll() // AÑADIMOS uploads_unistay a permitAll
+                        // FIX: permitir preflight
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Auth (incluye google-login)
+                        .requestMatchers("/api/auth/**", "/uploads_unistay/**").permitAll()
+
                         .requestMatchers("/api/post", "/api/post/**").permitAll()
                         .requestMatchers("/api/room", "/api/room/**").permitAll()
                         .requestMatchers("/api/user", "/api/user/**").permitAll()
@@ -52,7 +50,6 @@ public class SecurityConfiguration {
                         .anyRequest().authenticated()
                 );
 
-        // 5. Añadimos nuestro filtro JWT
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

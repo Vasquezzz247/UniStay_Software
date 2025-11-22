@@ -6,6 +6,10 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import AuthLayout from '../components/layout/AuthLayout';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
+// Google Login + apiClient
+import { GoogleLogin } from '@react-oauth/google';
+import apiClient from '../services/apiClient';
+
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,12 +26,44 @@ const LoginPage = () => {
     e.preventDefault();
     setError('');
     if (isLoading) return;
+
     try {
       await login({ email, password });
-      navigate('/'); // Redirige a la página principal tras el login
+      navigate('/posts'); // login normal
     } catch (err) {
       setError(err.message || 'Error al iniciar sesión.');
     }
+  };
+
+  // ========== LOGIN CON GOOGLE ==========
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      const idToken = credentialResponse.credential;
+
+      const { data } = await apiClient.post('/auth/google-login', { idToken });
+
+      // Soportar { token } o { data: { token } }
+      const backendToken = data?.token ?? data?.data?.token;
+
+      if (!backendToken) {
+        throw new Error('La respuesta del servidor no contiene token');
+      }
+
+      // Guardamos el token en las mismas claves que el login normal
+      localStorage.setItem('token', backendToken);
+      localStorage.setItem('userToken', backendToken);
+
+      // Navegar a /posts; ProtectedRoute verá el token y dejará pasar
+      navigate('/posts', { replace: true });
+    } catch (err) {
+      console.error('Error en login con Google:', err);
+      setError('No se pudo iniciar sesión con Google.');
+    }
+  };
+
+  const handleGoogleError = () => {
+    console.error('Google Login Failed');
+    setError('No se pudo iniciar sesión con Google.');
   };
 
   return (
@@ -35,7 +71,7 @@ const LoginPage = () => {
       title="Bienvenido de vuelta"
       subtitle="Inicia sesión en tu cuenta para encontrar tu hogar ideal"
     >
-      <div className="p-8 border border-gray-200 rounded-xl shadow-sm">
+      <div className="p-8 border border-gray-200 rounded-xl shadow-sm bg-white">
         <h3 className="text-xl font-semibold text-gray-800">Iniciar Sesión</h3>
         <p className="text-sm text-gray-500 mt-1 mb-6">
           Ingresa tus credenciales para acceder a tu cuenta
@@ -123,10 +159,31 @@ const LoginPage = () => {
             disabled={isLoading}
             className="w-full flex justify-center items-center gap-2 px-4 py-2.5 font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300"
           >
-            {isLoading ? 'Iniciando...' : 'Iniciar Sesión'}{' '}
+            {isLoading ? 'Iniciando...' : 'Iniciar Sesión'}
             <ArrowRight className="h-5 w-5" />
           </button>
         </form>
+
+        {/* Separador + botón de Google */}
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-2 bg-white text-gray-400">
+                o continúa con
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+            />
+          </div>
+        </div>
       </div>
 
       <p className="mt-6 text-sm text-center text-gray-600">

@@ -1,30 +1,30 @@
 // src/components/common/ProtectedRoute.jsx
 
 import React from 'react';
-import { useAuth } from '../../context/AuthContext'; // Ajusta la ruta si es necesario
+import { useAuth } from '../../context/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
-  // 1. Si aún estamos en el proceso de verificar el token inicial, 
-  // mostramos un mensaje de carga. Esto es CRUCIAL para evitar que el
-  // usuario sea redirigido a /login brevemente al recargar la página.
+  // 🔍 Fallback: también revisamos el localStorage por si el contexto
+  // todavía no se ha actualizado (por ejemplo, justo después de login con Google).
+  const storedToken =
+    localStorage.getItem('userToken') || localStorage.getItem('token');
+
+  // 1. Mientras el AuthContext está cargando, mostramos algo neutro
   if (isLoading) {
-    return <div>Verificando autenticación...</div>; // O un componente de Spinner/Loader
+    return <div>Verificando autenticación...</div>;
   }
 
-  // 2. Si la carga terminó y el usuario NO está autenticado,
-  // lo redirigimos a la página de login.
-  if (!isAuthenticated) {
-    // Guardamos la página a la que intentaba acceder (location) para que,
-    // después del login, podamos redirigirlo de vuelta a ella.
+  // 2. Si NO hay autenticación en el contexto y TAMPOCO hay token guardado,
+  // mandamos al login.
+  if (!isAuthenticated && !storedToken) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // 3. Si la carga terminó y el usuario SÍ está autenticado,
-  // renderizamos el componente hijo (la página que estamos protegiendo).
+  // 3. Si hay auth o al menos hay token en localStorage, dejamos pasar.
   return children;
 };
 
