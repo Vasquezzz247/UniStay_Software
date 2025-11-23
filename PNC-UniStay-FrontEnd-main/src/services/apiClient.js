@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Base desde .env
-let baseURL = import.meta.env.VITE_BACKEND_URL || 'http://services-cuponera.alwaysdata.net:8377';
+let baseURL = import.meta.env.VITE_BACKEND_URL || 'https://services-cuponera.alwaysdata.net:8377';
 
 // Normalizar: quitar "/" final
 baseURL = baseURL.replace(/\/$/, "");
