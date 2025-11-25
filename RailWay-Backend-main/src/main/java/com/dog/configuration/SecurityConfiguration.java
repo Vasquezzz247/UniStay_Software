@@ -37,16 +37,19 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // FIX: permitir preflight
+                        // Permitir preflight CORS
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Auth (incluye google-login)
+                        // Auth (incluye google-login) y archivos públicos
                         .requestMatchers("/api/auth/**", "/uploads_unistay/**").permitAll()
 
+                        // Endpoints públicos (según lo que ya tenías)
                         .requestMatchers("/api/post", "/api/post/**").permitAll()
                         .requestMatchers("/api/room", "/api/room/**").permitAll()
                         .requestMatchers("/api/user", "/api/user/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/post-filters", "/api/post-filters/**").permitAll()
+
+                        // El resto requiere autenticación
                         .anyRequest().authenticated()
                 );
 
@@ -55,20 +58,24 @@ public class SecurityConfiguration {
         return http.build();
     }
 
-    // 6. Definimos el BEAN de CORS que buscará ".cors(withDefaults())"
+    // CORS global (para localhost y Vercel)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "https://uni-stay-software.vercel.app",
+                "https://api-cuponera.alwaysdata.net"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // Aplica esta configuración a TODAS las rutas
+        // Aplica la config a todas las rutas
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
 
     @Bean
     public PasswordEncoder passwordEncoder() {

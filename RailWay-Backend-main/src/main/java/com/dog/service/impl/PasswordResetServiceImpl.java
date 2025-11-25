@@ -30,7 +30,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private String senderEmail;
 
     // URL base del frontend (para armar el link del correo)
-    @Value("${unistay.frontend.base-url:http://localhost:5173}")
+    @Value("${unistay.frontend.base-url:http://uni-stay-software.vercel.app}")
     private String frontendBaseUrl;
 
     // Validez del token (ej: 30 minutos)
