@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Base desde .env
-let baseURL = import.meta.env.VITE_BACKEND_URL || 'https://cuponera.alwaysdata.net/unistay_proxy.php';
+let baseURL = import.meta.env.VITE_BACKEND_URL || 'https://unistay-software.onrender.com';
 
 // Normalizar: quitar "/" final
 baseURL = baseURL.replace(/\/$/, "");
