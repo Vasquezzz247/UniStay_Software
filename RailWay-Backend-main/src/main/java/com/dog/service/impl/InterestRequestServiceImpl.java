@@ -15,12 +15,10 @@ import com.dog.repository.InterestRequestRepository;
 import com.dog.repository.PaymentRepository;
 import com.dog.repository.PostRepository;
 import com.dog.repository.UserRepository;
+import com.dog.service.EmailService;
 import com.dog.service.InterestRequestService;
 import com.dog.utils.mappers.InterestRequestMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,11 +34,10 @@ public class InterestRequestServiceImpl implements InterestRequestService {
     private final InterestRequestRepository interestRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
-    private final JavaMailSender mailSender;
     private final PaymentRepository paymentRepository;
 
-    @Value("${spring.mail.username:no-reply@unistay.com}")
-    private String senderEmail;
+    // 👇 nuevo: usamos la interfaz genérica de correo
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -76,7 +73,12 @@ public class InterestRequestServiceImpl implements InterestRequestService {
         System.out.println("[PASO 5] Después de mapear, el DTO que se va a retornar es: " + responseDto.toString());
         System.out.println("================================================\n\n");
 
-        sendAppointmentNotificationEmail(request.getStudent().getEmail());
+        // 👇 Enviamos el correo, pero si falla NO rompemos el flujo
+        try {
+            sendAppointmentNotificationEmail(request.getStudent().getEmail());
+        } catch (Exception e) {
+            System.err.println("[EMAIL] Error enviando notificación de propuesta de cita: " + e.getMessage());
+        }
 
         return responseDto;
     }
@@ -93,8 +95,6 @@ public class InterestRequestServiceImpl implements InterestRequestService {
         }
 
         // --- INICIO DE LA CORRECCIÓN ---
-        // La acción de confirmar ahora se basa en la existencia de un 'chosenSlot' en el DTO.
-        // La lógica de aceptar/rechazar fue movida al frontend. Aquí siempre se acepta.
         request.setAppointmentDateTime(dto.getChosenSlot());
         request.setAppointmentConfirmedByStudent(true);
         request.setStatus(InterestRequestStatus.ACCEPTED);
@@ -102,7 +102,12 @@ public class InterestRequestServiceImpl implements InterestRequestService {
         InterestRequest updated = interestRepository.saveAndFlush(request);
 
         // Notificamos al propietario que la cita fue aceptada.
-        sendConfirmationResultEmail(request.getPost().getOwner().getEmail(), true);
+        // Si falla el correo, NO rompemos
+        try {
+            sendConfirmationResultEmail(request.getPost().getOwner().getEmail(), true);
+        } catch (Exception e) {
+            System.err.println("[EMAIL] Error enviando correo de confirmación de cita: " + e.getMessage());
+        }
 
         return InterestRequestMapper.toResponseDTO(updated);
         // --- FIN DE LA CORRECCIÓN ---
@@ -137,7 +142,14 @@ public class InterestRequestServiceImpl implements InterestRequestService {
         }
         InterestRequest entity = InterestRequestMapper.toEntity(dto, student, post);
         InterestRequest saved = interestRepository.save(entity);
-        sendNotificationEmail(post.getOwner().getEmail());
+
+        // Notificar al owner de la publicación. Si falla, NO cancelamos la creación.
+        try {
+            sendNotificationEmail(post.getOwner().getEmail());
+        } catch (Exception e) {
+            System.err.println("[EMAIL] Error enviando notificación de nueva solicitud: " + e.getMessage());
+        }
+
         return InterestRequestMapper.toResponseDTO(saved);
     }
 
@@ -193,7 +205,10 @@ public class InterestRequestServiceImpl implements InterestRequestService {
     public List<InterestRequestDetailDTO> getAcceptedRequestsForOwner(String ownerEmail) {
         // 1. Busca todas las solicitudes aceptadas
         List<InterestRequest> acceptedRequests = interestRepository
-                .findByPost_Owner_EmailAndStatusAndAppointmentConfirmedByStudentIsTrue(ownerEmail, InterestRequestStatus.ACCEPTED);
+                .findByPost_Owner_EmailAndStatusAndAppointmentConfirmedByStudentIsTrue(
+                        ownerEmail,
+                        InterestRequestStatus.ACCEPTED
+                );
 
         // 2. Filtra para excluir aquellas que ya tienen un pago generado
         return acceptedRequests.stream()
@@ -202,46 +217,38 @@ public class InterestRequestServiceImpl implements InterestRequestService {
                 .collect(Collectors.toList());
     }
 
+    // ================== HELPERS DE EMAIL (ahora usando EmailService) ==================
+
     private void sendNotificationEmail(String toEmail) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(senderEmail);
-        message.setTo(toEmail);
-        message.setSubject("Nueva solicitud de interés en una de tus publicaciones");
-        message.setText("¡Hola! Has recibido una nueva solicitud en una de tus habitaciones.\n\n" +
+        String subject = "Nueva solicitud de interés en una de tus publicaciones";
+        String body = "¡Hola! Has recibido una nueva solicitud en una de tus habitaciones.\n\n" +
                 "Por favor inicia sesión en UniStay para ver los detalles completos.\n\n" +
-                "Este mensaje es automático. No respondas a este correo.");
+                "Este mensaje es automático. No respondas a este correo.";
 
-        mailSender.send(message);
-
+        emailService.sendEmail(toEmail, subject, body);
     }
 
     private void sendAppointmentNotificationEmail(String toEmail) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(senderEmail);
-        message.setTo(toEmail);
-        message.setSubject("Nueva propuesta de cita en UniStay");
-        message.setText("Se ha propuesto una nueva fecha para reunirse en relación a una solicitud de interés.\n\n" +
+        String subject = "Nueva propuesta de cita en UniStay";
+        String body = "Se ha propuesto una nueva fecha para reunirse en relación a una solicitud de interés.\n\n" +
                 "Por favor, inicia sesión en UniStay para revisar la propuesta.\n\n" +
-                "Este mensaje es automático. No respondas a este correo.");
-        mailSender.send(message);
+                "Este mensaje es automático. No respondas a este correo.";
 
+        emailService.sendEmail(toEmail, subject, body);
     }
 
     private void sendConfirmationResultEmail(String toEmail, boolean accepted) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(senderEmail);
-        message.setTo(toEmail);
-        message.setSubject("Respuesta a la cita en UniStay");
+        String subject = "Respuesta a la cita en UniStay";
+        String body;
 
         if (accepted) {
-            message.setText("El estudiante ha aceptado la propuesta de cita.\n\n" +
-                    "Inicia sesión en UniStay para ver los detalles y prepararte para la reunión.");
+            body = "El estudiante ha aceptado la propuesta de cita.\n\n" +
+                    "Inicia sesión en UniStay para ver los detalles y prepararte para la reunión.";
         } else {
-            message.setText("El estudiante ha rechazado la propuesta de cita.\n\n" +
-                    "Puedes proponer una nueva fecha si aún estás interesado.");
+            body = "El estudiante ha rechazado la propuesta de cita.\n\n" +
+                    "Puedes proponer una nueva fecha si aún estás interesado.";
         }
 
-        mailSender.send(message);
-
+        emailService.sendEmail(toEmail, subject, body);
     }
 }

@@ -4,11 +4,10 @@ import com.dog.entities.PasswordResetToken;
 import com.dog.entities.User;
 import com.dog.repository.PasswordResetTokenRepository;
 import com.dog.repository.UserRepository;
+import com.dog.service.EmailService;
 import com.dog.service.PasswordResetService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,14 +22,13 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
-    private final JavaMailSender mailSender;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${spring.mail.username:no-reply@unistay.com}")
-    private String senderEmail;
+    // nuevo: usamos la interfaz genérica de correo
+    private final EmailService emailService;
 
     // URL base del frontend (para armar el link del correo)
-    @Value("${unistay.frontend.base-url:http://uni-stay-software.vercel.app}")
+    @Value("${unistay.frontend.base-url:https://uni-stay-software.vercel.app}")
     private String frontendBaseUrl;
 
     // Validez del token (ej: 30 minutos)
@@ -43,9 +41,8 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         Optional<User> userOpt = userRepository.findByEmail(email);
 
         if (userOpt.isEmpty()) {
-            // opcional: log para debugging
             System.out.println("[FORGOT PASSWORD] Email no registrado: " + email);
-            return; // salimos silenciosamente
+            return;
         }
 
         User user = userOpt.get();
@@ -86,22 +83,19 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         tokenRepository.save(token);
     }
 
-    // ---- Email helpers (mismo estilo que InterestRequestServiceImpl) ----
+    // ---- Email helpers ----
 
     private void sendPasswordResetEmail(String toEmail, String resetLink) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(senderEmail);
-        message.setTo(toEmail);
-        message.setSubject("Restablece tu contraseña - UniStay");
-        message.setText(
+        String subject = "Restablece tu contraseña - UniStay";
+
+        String body =
                 "Hemos recibido una solicitud para restablecer tu contraseña en UniStay.\n\n" +
                         "Si fuiste tú, haz clic en el siguiente enlace o cópialo en tu navegador:\n" +
                         resetLink + "\n\n" +
                         "Este enlace es válido por " + EXPIRATION_MINUTES + " minutos.\n\n" +
                         "Si no solicitaste este cambio, puedes ignorar este mensaje.\n\n" +
-                        "Este mensaje es automático. No respondas a este correo."
-        );
+                        "Este mensaje es automático. No respondas a este correo.";
 
-        mailSender.send(message);
+        emailService.sendEmail(toEmail, subject, body);
     }
 }
